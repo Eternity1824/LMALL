@@ -1,15 +1,71 @@
-# LMall 微服务商城系统
+# LMall Microservices E-Commerce Platform
 
-## 模块说明
+**LMall** is a next-generation, cloud-native microservices platform for online retail. Built with Spring Boot, Maven multimodule architecture, and industry-proven design patterns, LMall delivers high scalability, resilience, and rapid feature delivery.
 
-- common：通用 DTO、工具类
-- user-service：用户服务
-- product-service：商品服务
-- inventory-service：库存服务
-- order-service：订单服务
-- payment-service：支付服务（含 TCC）
-- gateway-service：API 网关
-- id-generator：分布式主键
-- mq-service：消息队列封装模块
+---
 
-每个模块可独立构建部署，统一管理于本仓库。
+## 📐 Architecture Overview
+                                   +-------------------+
+                                   |   API Gateway     |
+                                   | (Spring Cloud GW) |
+                                   +---------+---------+
+                                             |
+      +-----------------+   +---------------+--------------+   +----------------+
+      | user-service    |   | product-service                |   | inventory-svc  |
+      | (Auth & Profile)|   | (Catalog & Pricing)            |   | (Stock & Lua)  |
+      +--------+--------+   +---------------+--------------+   +--------+-------+
+               |                          |                           |
+               |                          |                           |
+      +--------v--------+         +-------v--------+         +--------v--------+
+      | order-service   | <-----> | payment-service| <-----> |  mq-service     |
+      | (Order Workflow)|         | (TCC Payment)  |         | (RabbitMQ API)  |
+      +-----------------+         +----------------+         +-----------------+
+               |
+               |
+      +--------v--------+
+      | id-generator    |
+      | (Snowflake MS)  |
+      +-----------------+
+---
+
+## 🔍 Module Breakdown
+
+| Module               | Responsibility                                                     |
+|----------------------|--------------------------------------------------------------------|
+| **common**           | Shared DTOs, utility classes, exception handling, and config beans |
+| **user-service**     | User registration, authentication (JWT), profile management        |
+| **product-service**  | Product catalog, pricing, categories, search integration           |
+| **inventory-service**| Real-time stock management (Redis Cluster + Lua scripting)         |
+| **order-service**    | Order lifecycle: creation, validation, status tracking             |
+| **payment-service**  | Distributed TCC payment orchestration                              |
+| **mq-service**       | Unified RabbitMQ client wrapper (delay queues, DLQ, retries)       |
+| **id-generator**     | Distributed ID generator (Snowflake algorithm)                     |
+| **gateway-service**  | API Gateway with routing, load-balancing, security filters         |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+
+- Java 17
+- Maven 3.8+
+- Docker & Docker Compose
+
+### 2. Clone & Build
+
+```bash
+git clone https://github.com/your-username/LMall.git
+cd LMall
+mvn clean install -DskipTests
+````
+3. Run All Services with Docker Compose
+
+```bash
+docker-compose up --build -d
+```
+
+4. Access API Gateway
+
+Visit: http://localhost:8080/actuator/health
+to verify all services are running.
