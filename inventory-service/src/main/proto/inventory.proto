@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package inventory;
+
+service InventoryService {
+  // 检查库存是否充足
+  rpc CheckInventory (CheckInventoryRequest) returns (CheckInventoryResponse);
+  // 尝试预留库存
+  rpc TryReserveInventory (ReserveInventoryRequest) returns (ReserveInventoryResponse);
+  // 回滚库存预留
+  rpc RollbackInventory (ReserveInventoryRequest) returns (ReserveInventoryResponse);
+  // 确认库存变更
+  rpc ConfirmInventoryChange (InventoryChangeRequest) returns (InventoryChangeResponse);
+  // 预热商品库存
+  rpc PrewarmInventory (PrewarmInventoryRequest) returns (PrewarmInventoryResponse);
+}
+
+message CheckInventoryRequest {
+  string item_id = 1;
+  int32 quantity = 2;
+}
+
+message CheckInventoryResponse {
+  bool available = 1;
+  int32 current_stock = 2;
+  string message = 3;
+}
+
+message ReserveInventoryRequest {
+  string item_id = 1;
+  int32 quantity = 2;
+}
+
+message ReserveInventoryResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message InventoryChangeRequest {
+  string item_id = 1;
+  int32 quantity = 2; // 正数为增加，负数为减少
+}
+
+message InventoryChangeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PrewarmInventoryRequest {
+  string item_id = 1; // 如果为空，则预热所有商品
+}
+
+message PrewarmInventoryResponse {
+  bool success = 1;
+  string message = 2;
+}

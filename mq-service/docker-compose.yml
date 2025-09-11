@@ -1,0 +1,24 @@
+services:
+  mq-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mq-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - rabbitmq
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pg-lmall:5432/lmall
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq-lmall
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+    networks:
+      - lmall-network
+
+networks:
+  lmall-network:
+    external: true

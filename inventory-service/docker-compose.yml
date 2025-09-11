@@ -1,0 +1,26 @@
+services:
+  inventory-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - rabbitmq
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pg-lmall:5432/lmall
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq-lmall
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_REDIS_HOST: redis-lmall
+      SPRING_REDIS_PORT: 6379
+    networks:
+      - lmall-network
+
+networks:
+  lmall-network:
+    external: true

@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: pg-lmall
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: lmall
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7
+    container_name: redis-lmall
+    ports:
+      - "6379:6379"
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-lmall
+    ports:
+      - "5672:5672"   # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: always
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8080:8080"
+      - "9090:9090" # gRPC port
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pg-lmall:5432/lmall
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123456
+      SPRING_REDIS_HOST: redis-lmall
+      SPRING_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq-lmall
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+
+volumes:
+  pg_data:
+  rabbitmq_data:

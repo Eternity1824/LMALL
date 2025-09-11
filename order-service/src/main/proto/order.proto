@@ -3,17 +3,61 @@ syntax = "proto3";
 package order;
 
 service OrderService {
-  rpc CreateOrder (OrderRequest) returns (OrderResponse);
+  // 创建订单（Try阶段）
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+  // 确认订单（Confirm阶段）
+  rpc ConfirmOrder (ConfirmOrderRequest) returns (ConfirmOrderResponse);
+  // 取消订单（Cancel阶段）
+  rpc CancelOrder (CancelOrderRequest) returns (CancelOrderResponse);
+  // 获取订单
+  rpc GetOrder (GetOrderRequest) returns (GetOrderResponse);
 }
 
-message OrderRequest {
+message CreateOrderRequest {
   string user_id = 1;
   string item_id = 2;
   int32 quantity = 3;
   string token = 4;
 }
 
-message OrderResponse {
+message CreateOrderResponse {
   string order_id = 1;
   string message = 2;
+}
+
+message ConfirmOrderRequest {
+  string order_id = 1;
+  string payment_id = 2; // 支付模块返回的支付ID
+  string token = 3;
+}
+
+message ConfirmOrderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  string reason = 2; // 取消原因
+  string token = 3;
+}
+
+message CancelOrderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+  string token = 2;
+}
+
+message GetOrderResponse {
+  string order_id = 1;
+  string user_id = 2;
+  string item_id = 3;
+  int32 quantity = 4;
+  string status = 5; // 订单状态：PENDING, CONFIRMED, CANCELLED
+  bool success = 6;
+  string message = 7;
 }

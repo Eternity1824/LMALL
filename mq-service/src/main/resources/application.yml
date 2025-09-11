@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: mq-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lmall
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2
+
+server:
+  port: 8082
+
+rabbitmq:
+  exchanges:
+    order: order.exchange
+    inventory: inventory.exchange
+  queues:
+    order-creation: order.creation.queue
+    order-status-update: order.status.update.queue
+    inventory-update: inventory.update.queue
+  routing-keys:
+    order-creation: order.create
+    order-status-update: order.status.update
+    inventory-update: inventory.update
