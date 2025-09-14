@@ -21,11 +21,13 @@ public class RabbitMQConfig {
     public static final String ORDER_CREATION_QUEUE = "order.creation.queue";
     public static final String ORDER_STATUS_UPDATE_QUEUE = "order.status.update.queue";
     public static final String INVENTORY_UPDATE_QUEUE = "inventory.update.queue";
+    public static final String INVENTORY_PREWARM_QUEUE = "inventory.prewarm.queue";
     
     // 路由键
     public static final String ORDER_CREATION_ROUTING_KEY = "order.create";
     public static final String ORDER_STATUS_UPDATE_ROUTING_KEY = "order.status.update";
     public static final String INVENTORY_UPDATE_ROUTING_KEY = "inventory.update";
+    public static final String INVENTORY_PREWARM_ROUTING_KEY = "inventory.prewarm";
     
     // 声明交换机
     @Bean
@@ -54,6 +56,11 @@ public class RabbitMQConfig {
         return QueueBuilder.durable(INVENTORY_UPDATE_QUEUE).build();
     }
     
+    @Bean
+    public Queue inventoryPrewarmQueue() {
+        return QueueBuilder.durable(INVENTORY_PREWARM_QUEUE).build();
+    }
+    
     // 绑定队列到交换机
     @Bean
     public Binding orderCreationBinding() {
@@ -74,6 +81,13 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(inventoryUpdateQueue())
                 .to(inventoryExchange())
                 .with(INVENTORY_UPDATE_ROUTING_KEY);
+    }
+    
+    @Bean
+    public Binding inventoryPrewarmBinding() {
+        return BindingBuilder.bind(inventoryPrewarmQueue())
+                .to(inventoryExchange())
+                .with(INVENTORY_PREWARM_ROUTING_KEY);
     }
     
     // 配置RabbitTemplate

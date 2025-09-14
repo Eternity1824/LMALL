@@ -30,6 +30,10 @@ spring:
 server:
   port: 8083
 
+grpc:
+  server:
+    port: 9091
+
 rabbitmq:
   exchanges:
     inventory: inventory.exchange

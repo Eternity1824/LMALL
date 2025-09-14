@@ -97,7 +97,7 @@ public class OrderGrpcServiceImpl extends OrderServiceGrpc.OrderServiceImplBase 
             orderStateManager.cancelOrder(request.getOrderId(), request.getReason());
             
             // 构建成功响应
-            CancelOrderResponse response = CancelOrderResponse.newBuilder()
+            order.Order.CancelOrderResponse response = CancelOrderResponse.newBuilder()
                     .setSuccess(true)
                     .setMessage("Order cancelled successfully")
                     .build();

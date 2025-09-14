@@ -35,7 +35,9 @@ rabbitmq:
     order-creation: order.creation.queue
     order-status-update: order.status.update.queue
     inventory-update: inventory.update.queue
+    inventory-prewarm: inventory.prewarm.queue
   routing-keys:
     order-creation: order.create
     order-status-update: order.status.update
     inventory-update: inventory.update
+    inventory-prewarm: inventory.prewarm

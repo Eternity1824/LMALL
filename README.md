@@ -58,14 +58,64 @@
 git clone https://github.com/your-username/LMall.git
 cd LMall
 mvn clean install -DskipTests
-````
-3. Run All Services with Docker Compose
+```
+
+### 3. Run All Services with Docker Compose
 
 ```bash
 docker-compose up --build -d
 ```
 
-4. Access API Gateway
+### 4. Access API Gateway
 
 Visit: http://localhost:8080/actuator/health
 to verify all services are running.
+
+---
+
+## 🔄 Message Queue Architecture
+
+LMall implements a robust message-driven architecture using RabbitMQ for asynchronous communication between services:
+
+### Key Components:
+
+1. **mq-service**: Centralized message queue service that:
+   - Handles all database synchronization operations
+   - Processes messages from other services
+   - Provides a unified API for message publishing
+
+2. **order-service**: 
+   - Implements TCC (Try-Confirm-Cancel) pattern
+   - Sends messages to mq-service for order persistence
+   - Uses Redis for temporary order storage
+
+3. **inventory-service**:
+   - Manages inventory with Redis Lua scripts for atomic operations
+   - Consumes inventory update messages from mq-service
+   - Provides inventory prewarming for high-traffic scenarios
+
+### Message Flow:
+
+```
+order-service                 mq-service                  inventory-service
+     |                             |                             |
+     |--- Order Creation --------->|                             |
+     |                             |--- DB Write (Order) ------->|
+     |                             |                             |
+     |--- Inventory Update ------->|                             |
+     |                             |--- DB Write (Inventory) --->|
+     |                             |                             |
+     |<-- Confirmation ------------|                             |
+     |                             |                             |
+     |--- Inventory Prewarm ------>|                             |
+     |                             |--- Prewarm Request -------->|
+     |                             |                             |
+```
+
+### Benefits:
+
+- **Decoupling**: Services are loosely coupled through message passing
+- **Resilience**: System can recover from partial failures
+- **Scalability**: Services can scale independently
+- **Performance**: Asynchronous processing improves response times
+- **Consistency**: TCC pattern ensures data consistency across services
