@@ -1,0 +1,138 @@
+# Spring Profile for Local Development with RabbitMQ
+spring:
+  profiles:
+    active: local-rabbitmq
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lmall
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: manual
+        concurrency: 5
+        max-concurrency: 10
+        prefetch: 10
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 5
+          max-interval: 30000
+          multiplier: 2.0
+    template:
+      retry:
+        enabled: true
+        initial-interval: 1000
+        max-attempts: 3
+        max-interval: 10000
+        multiplier: 2.0
+
+  # Redis Configuration
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000
+    lettuce:
+      pool:
+        max-active: 10
+        max-idle: 8
+        min-idle: 2
+
+# Application-specific Configuration
+lmall:
+  messaging:
+    provider: rabbitmq
+
+  rabbitmq:
+    exchange:
+      name: lmall.events
+      type: topic
+      durable: true
+
+    queues:
+      order:
+        payment-captured: order.payment.captured
+        inventory-released: order.inventory.released
+      inventory:
+        order-created: inventory.order.created
+        order-cancel-requested: inventory.order.cancel.requested
+        order-confirmed: inventory.order.confirmed
+      payment:
+        order-created: payment.order.created
+
+    routing-keys:
+      order-created: order.created
+      order-cancel-requested: order.cancel.requested
+      order-confirmed: order.confirmed
+      order-canceled: order.canceled
+      payment-captured: payment.captured
+      payment-failed: payment.failed
+      inventory-reserved: inventory.reserved
+      inventory-released: inventory.released
+      inventory-sold: inventory.sold
+
+  outbox:
+    publisher:
+      enabled: true
+      batch-size: 100
+      poll-interval-ms: 5000
+      max-retries: 3
+
+  consumer:
+    dedupe:
+      enabled: true
+      retention-days: 7
+
+  order:
+    payment-timeout-minutes: 15
+
+  redis:
+    ttl:
+      order-hold-seconds: 900  # 15 minutes
+      cache-seconds: 3600      # 1 hour
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: local-rabbitmq
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.lmall: DEBUG
+    org.springframework.amqp: DEBUG
+    org.springframework.cloud: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/${spring.application.name}-local.log

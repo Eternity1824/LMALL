@@ -1,0 +1,242 @@
+{
+  "rabbit_version": "3.12",
+  "rabbitmq_version": "3.12",
+  "product_name": "RabbitMQ",
+  "product_version": "3.12",
+  "users": [
+    {
+      "name": "admin",
+      "password_hash": "VjSfDN9K4veleALZL+3TmT+z0j6NIqiNVvVH8f8e7MB5SDGK",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "topic_permissions": [],
+  "parameters": [],
+  "global_parameters": [
+    {
+      "name": "internal_cluster_id",
+      "value": "rabbitmq-cluster-lmall"
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "ha-all",
+      "pattern": ".*",
+      "priority": 0,
+      "apply-to": "all",
+      "definition": {
+        "ha-mode": "all",
+        "ha-sync-mode": "automatic",
+        "message-ttl": 3600000
+      }
+    }
+  ],
+  "queues": [
+    {
+      "name": "order.payment.captured",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "order.payment.captured.dlq"
+      }
+    },
+    {
+      "name": "order.payment.captured.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "order.inventory.released",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "order.inventory.released.dlq"
+      }
+    },
+    {
+      "name": "order.inventory.released.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "inventory.order.created",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "inventory.order.created.dlq"
+      }
+    },
+    {
+      "name": "inventory.order.created.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "inventory.order.cancel.requested",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "inventory.order.cancel.requested.dlq"
+      }
+    },
+    {
+      "name": "inventory.order.cancel.requested.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "inventory.order.confirmed",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "inventory.order.confirmed.dlq"
+      }
+    },
+    {
+      "name": "inventory.order.confirmed.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "payment.order.created",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "payment.order.created.dlq"
+      }
+    },
+    {
+      "name": "payment.order.created.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 604800000
+      }
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "lmall.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "lmall.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "lmall.events",
+      "vhost": "/",
+      "destination": "order.payment.captured",
+      "destination_type": "queue",
+      "routing_key": "payment.captured",
+      "arguments": {}
+    },
+    {
+      "source": "lmall.events",
+      "vhost": "/",
+      "destination": "order.inventory.released",
+      "destination_type": "queue",
+      "routing_key": "inventory.released",
+      "arguments": {}
+    },
+    {
+      "source": "lmall.events",
+      "vhost": "/",
+      "destination": "inventory.order.created",
+      "destination_type": "queue",
+      "routing_key": "order.created",
+      "arguments": {}
+    },
+    {
+      "source": "lmall.events",
+      "vhost": "/",
+      "destination": "inventory.order.cancel.requested",
+      "destination_type": "queue",
+      "routing_key": "order.cancel.requested",
+      "arguments": {}
+    },
+    {
+      "source": "lmall.events",
+      "vhost": "/",
+      "destination": "inventory.order.confirmed",
+      "destination_type": "queue",
+      "routing_key": "order.confirmed",
+      "arguments": {}
+    },
+    {
+      "source": "lmall.events",
+      "vhost": "/",
+      "destination": "payment.order.created",
+      "destination_type": "queue",
+      "routing_key": "order.created",
+      "arguments": {}
+    }
+  ]
+}

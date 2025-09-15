@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  # 数据库服务
+  # PostgreSQL Database
   postgres:
-    image: postgres:14
-    container_name: pg-lmall
+    image: postgres:15-alpine
+    container_name: lmall-postgres
     ports:
       - "5432:5432"
     environment:
@@ -13,112 +13,249 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - lmall-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Redis服务
+  # Redis Cache
   redis:
-    image: redis:6
-    container_name: redis-lmall
+    image: redis:7-alpine
+    container_name: lmall-redis
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - lmall-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # RabbitMQ服务
+  # RabbitMQ Message Broker (Default for local dev)
   rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq-lmall
+    image: rabbitmq:3.12-management-alpine
+    container_name: lmall-rabbitmq
     ports:
-      - "5672:5672"   # AMQP端口
-      - "15672:15672" # 管理界面端口
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+      RABBITMQ_DEFAULT_VHOST: /
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./config/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     networks:
       - lmall-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
-  # 订单服务
+  # LocalStack for AWS Services (Optional - use with aws profile)
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: lmall-localstack
+    profiles: ["aws"]  # Only starts with: docker-compose --profile aws up
+    ports:
+      - "4566:4566"  # LocalStack Gateway
+    environment:
+      - SERVICES=sns,sqs,dynamodb,s3,secretsmanager,lambda,cloudwatch,events
+      - DEBUG=0
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LAMBDA_EXECUTOR=docker-reuse
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    networks:
+      - lmall-network
+    healthcheck:
+      test: ["CMD", "awslocal", "sns", "list-topics"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Order Service
   order-service:
     build:
       context: ./order-service
       dockerfile: Dockerfile
-    container_name: order-service
+    container_name: lmall-order-service
     ports:
-      - "8081:8081"  # REST API端口
-      - "9090:9090"  # gRPC端口
+      - "8081:8081"  # REST API
+      - "9091:9090"  # gRPC
     depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local-rabbitmq}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lmall
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+      # AWS LocalStack settings (when using aws profile)
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
     networks:
       - lmall-network
+    volumes:
+      - ./logs/order-service:/app/logs
 
-  # 消息队列服务
-  mq-service:
-    build:
-      context: ./mq-service
-      dockerfile: Dockerfile
-    container_name: mq-service
-    ports:
-      - "8082:8082"
-    depends_on:
-      - postgres
-      - rabbitmq
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lmall
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
-    networks:
-      - lmall-network
-
-  # 库存服务
+  # Inventory Service
   inventory-service:
     build:
       context: ./inventory-service
       dockerfile: Dockerfile
-    container_name: inventory-service
+    container_name: lmall-inventory-service
     ports:
       - "8083:8083"
+      - "9093:9090"  # gRPC
     depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local-rabbitmq}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lmall
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+      # AWS LocalStack settings
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
     networks:
       - lmall-network
+    volumes:
+      - ./logs/inventory-service:/app/logs
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: lmall-payment-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local-rabbitmq}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lmall
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin
+      # AWS LocalStack settings
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+    networks:
+      - lmall-network
+    volumes:
+      - ./logs/payment-service:/app/logs
+
+  # Gateway Service
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: lmall-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - order-service
+      - inventory-service
+      - payment-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      ORDER_SERVICE_URL: http://order-service:8081
+      INVENTORY_SERVICE_URL: http://inventory-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+    networks:
+      - lmall-network
+    volumes:
+      - ./logs/gateway-service:/app/logs
+
+  # Prometheus (Optional - Monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: lmall-prometheus
+    profiles: ["monitoring"]
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - lmall-network
+
+  # Grafana (Optional - Monitoring Dashboard)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: lmall-grafana
+    profiles: ["monitoring"]
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - lmall-network
+    depends_on:
+      - prometheus
 
 volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   lmall-network:

@@ -48,7 +48,7 @@
 
 ### 1. Prerequisites
 
-- Java 17
+- Java 21
 - Maven 3.8+
 - Docker & Docker Compose
 

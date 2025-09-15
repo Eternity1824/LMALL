@@ -1,0 +1,185 @@
+# Spring Profile for Local Development with AWS LocalStack
+spring:
+  profiles:
+    active: local-aws
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lmall
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+
+  # AWS Configuration for LocalStack
+  cloud:
+    aws:
+      credentials:
+        access-key: test
+        secret-key: test
+        instance-profile: false
+        use-default-aws-credentials-chain: false
+      region:
+        static: us-east-1
+        auto: false
+      stack:
+        auto: false
+
+  # Redis Configuration
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000
+    lettuce:
+      pool:
+        max-active: 10
+        max-idle: 8
+        min-idle: 2
+
+# AWS LocalStack Configuration
+aws:
+  endpoint-override: http://localhost:4566
+
+  sns:
+    endpoint: http://localhost:4566
+    topics:
+      order-events: arn:aws:sns:us-east-1:000000000000:lmall-order-events.fifo
+      payment-events: arn:aws:sns:us-east-1:000000000000:lmall-payment-events.fifo
+      inventory-events: arn:aws:sns:us-east-1:000000000000:lmall-inventory-events
+
+  sqs:
+    endpoint: http://localhost:4566
+    queues:
+      # Order Service Queues
+      order-payment-captured:
+        url: http://localhost:4566/000000000000/order-payment-captured.fifo
+        type: FIFO
+        visibility-timeout: 30
+        message-retention-period: 345600
+        max-receive-count: 5
+
+      order-inventory-released:
+        url: http://localhost:4566/000000000000/order-inventory-released
+        type: STANDARD
+        visibility-timeout: 30
+
+      # Inventory Service Queues
+      inventory-order-created:
+        url: http://localhost:4566/000000000000/inventory-order-created.fifo
+        type: FIFO
+        visibility-timeout: 45
+
+      inventory-order-cancel-requested:
+        url: http://localhost:4566/000000000000/inventory-order-cancel-requested.fifo
+        type: FIFO
+        visibility-timeout: 30
+
+      inventory-order-confirmed:
+        url: http://localhost:4566/000000000000/inventory-order-confirmed.fifo
+        type: FIFO
+        visibility-timeout: 30
+
+  dynamodb:
+    endpoint: http://localhost:4566
+    tables:
+      order-timeouts: order-timeouts-local
+      hot-products: hot-products-local
+
+  lambda:
+    endpoint: http://localhost:4566
+    functions:
+      cancel-scheduler: lmall-cancel-scheduler-local
+      dlq-replay: lmall-dlq-replay-local
+      cache-prewarmer: lmall-cache-prewarmer-local
+
+cloud:
+  aws:
+    sqs:
+      listener:
+        auto-startup: true
+        max-number-of-messages: 10
+        wait-time-seconds: 20  # Long polling
+        visibility-timeout: 30
+        acknowledge-mode: MANUAL
+        backoff:
+          initial-interval: 1000
+          max-interval: 30000
+          multiplier: 2.0
+
+# Application-specific Configuration
+lmall:
+  messaging:
+    provider: aws
+
+  outbox:
+    publisher:
+      enabled: true
+      batch-size: 100
+      poll-interval-ms: 5000
+      max-retries: 3
+
+  consumer:
+    dedupe:
+      enabled: true
+      retention-days: 7
+
+  order:
+    payment-timeout-minutes: 15
+
+  redis:
+    ttl:
+      order-hold-seconds: 900  # 15 minutes
+      cache-seconds: 3600      # 1 hour
+
+# Spring Cloud AWS Configuration
+io:
+  awspring:
+    cloud:
+      aws:
+        credentials:
+          access-key: test
+          secret-key: test
+        region:
+          static: us-east-1
+        sqs:
+          endpoint: http://localhost:4566
+          region: us-east-1
+        sns:
+          endpoint: http://localhost:4566
+          region: us-east-1
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: local-aws
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.lmall: DEBUG
+    software.amazon.awssdk: DEBUG
+    io.awspring.cloud: DEBUG
+    com.amazonaws: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/${spring.application.name}-local-aws.log
